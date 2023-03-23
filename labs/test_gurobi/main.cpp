@@ -4,31 +4,48 @@
 #include <numeric>
 
 int main(int argc, char *argv[]) {
-//
-//    int n = 5;
-//    std::vector<std::pair<int, int>> edges = {{0, 1}, {2, 3}, {0, 4}, {3, 1}, {3, 4}};
-//
-//    GRBEnv env;
-//    GRBModel model(env);
-//    std::vector<GRBVar> vars;
-//    vars.reserve(n);
-//    for (int i = 0; i < n; ++i) {
-//        vars.push_back(model.addVar(0.0, 1.0, 0.0, GRB_INTEGER));
-//    }
-//    for (const auto &[e1, e2]: edges) {
-//        model.addConstr(vars[e1] + vars[e2] >= 1);
-//    }
-//
-//    auto obj = std::accumulate(vars.begin(), vars.end(), GRBLinExpr{0.0});
-//    model.setObjective(obj);
-//
-//    model.optimize();
-//
-//    std::cout << "Taken values: \n";
-//    for (const auto &v: vars) {
-//        std::cout << v.get(GRB_DoubleAttr_X) << ", ";
-//    }
-//    std::cout << std::endl;
+
+    int A_x = 33, A_y = 32;
+    int a[] = {1, 4, 7, 8, 9, 10, 14, 15, 18};
+    int n = static_cast<int>(sizeof(a) / sizeof(a[0]));
+
+    GRBEnv env;
+    GRBModel model(env);
+
+    auto x = model.addVars(n, GRB_INTEGER);
+    auto y = model.addVars(n, GRB_INTEGER);
+
+    GRBVar *c[n], *g[n];
+    for (int i = 0; i < n; ++i) {
+        c[i] = model.addVars(n, GRB_BINARY);
+        g[i] = model.addVars(n, GRB_BINARY);
+    }
+
+    double M = A_x * A_y;
+    for (int i = 0; i < n; ++i) {
+        model.addConstr(x[i] >= 0);
+        model.addConstr(x[i] + a[i] <= A_x);
+        model.addConstr(y[i] >= 0);
+        model.addConstr(y[i] + a[i] <= A_y);
+        for (int j = 0; j < n; ++j) {
+            if (i != j) {
+                model.addConstr(c[i][j] == 1 - c[j][i]);
+                model.addConstr(g[i][j] <= 1 + 1 / M * (x[j] - x[i] - a[i]) + 1 / (M * M));
+                model.addConstr(y[j] - y[i] - a[i] + (1 - c[i][j]) * M + g[i][j] * M >= 0);
+                model.addConstr(y[i] - y[j] - a[j] + c[i][j] * M + g[j][i] * M >= 0);
+                model.addConstr(y[j] + a[j] - y[i] + (1 - c[i][j]) * M + g[i][j] * M >= 0);
+                model.addConstr(y[i] + a[i] - y[j] + c[i][j] * M + g[j][i] * M >= 0);
+
+
+            }
+        }
+    }
+
+    model.optimize();
+    std::cout << "Positions: " << std::endl;
+    for (int i = 0; i < n; ++i) {
+        std::cout << x[i].get(GRB_DoubleAttr_X) << ", " << y[i].get(GRB_DoubleAttr_X) << std::endl;
+    }
 
     return 0;
 }
